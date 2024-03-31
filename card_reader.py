@@ -129,9 +129,11 @@ if __name__ == "__main__":
             print(f"{name} | {size} | {blocks} | {title}")
 
     print()
-    print(f"• Total Size: {total_size / 1024} KB")
+    print(f"• Total Size: {total_size // 1024} KB ({total_size // 8192} Blocks)")
     # We consider the free space from 120 KB because the first block
     # is always the header block and so nothing can be stored there.
-    print(f"• Free Space: {120 - total_size / 1024} KB")
+    print(
+        f"• Free Space: {120 - total_size // 1024} KB ({15 - total_size // 8192} Blocks)"
+    )
     print()
     print("Filename prefix: BI = Japan, BE = Europe, BA = America")
