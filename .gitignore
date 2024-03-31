@@ -1,2 +1,4 @@
 # Sample cards used for testing
 *.mcd
+# Python caches
+__pycache__

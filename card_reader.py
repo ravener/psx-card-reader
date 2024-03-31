@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 # MIT License
 #
-# Copyright (c) 2023 Ravener
+# Copyright (c) 2023-2024 Ravener
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,8 @@
 
 import sys
 from argparse import ArgumentParser
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 CARD_SIZE = 128 * 1024  # 128 KiB raw memory card file size.
 BLOCK_SIZE = 8 * 1024  # 8 KiB per block (16 blocks total)
@@ -40,6 +40,7 @@ FRAME_SIZE = 128  # 128 bytes per frame (64 frames total)
 # 000000A2h - Free   ;deleted (middle block of file)
 # 000000A3h - Free   ;deleted (last block of file)
 FIRST = 0x51
+
 
 # A container to store directory information.
 @dataclass
