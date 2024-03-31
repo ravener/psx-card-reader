@@ -94,7 +94,7 @@ def verify_file(data):
 
 def get_title(data, i):
     block = read_block(data, i + 1)
-    return block[4:67].decode("shift_jis").strip("\x00")
+    return block[4:68].decode("shift_jis").strip("\x00")
 
 
 if __name__ == "__main__":

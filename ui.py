@@ -88,21 +88,18 @@ def bind_name(factory, item):
 
 def bind_size(factory, item):
     label = Gtk.Label.new(str(int(item.get_item().size)) + " KB")
-    # label.set_hexpand(True)
     label.set_halign(Gtk.Align.START)
     item.set_child(label)
 
 
 def bind_title(factory, item):
     label = Gtk.Label.new(item.get_item().title)
-    # label.set_hexpand(True)
     label.set_halign(Gtk.Align.START)
     item.set_child(label)
 
 
 def bind_blocks(factory, item):
     label = Gtk.Label.new(str(item.get_item().blocks))
-    # label.set_hexpand(True)
     label.set_halign(Gtk.Align.START)
     item.set_child(label)
 
@@ -211,7 +208,6 @@ class PSXWindow(Adw.ApplicationWindow):
     def on_file(self, widget, response):
         if response == Gtk.ResponseType.ACCEPT:
             file = self.file_chooser.get_file()
-            print(f"got file {file.get_basename()}")
 
             # TODO: Find out how to do this via GFile
             data = Path(file.get_path()).read_bytes()
