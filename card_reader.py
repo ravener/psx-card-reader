@@ -108,12 +108,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     directories = parse_header(read_block(data, 0))
-    print("File Name           | Size      | Blocks    | Title")
+    print("File Name            | Size      | Blocks    | Title")
     total_size = 0
 
     for i, directory in enumerate(directories):
         if directory.state == FIRST:
-            name = directory.file_name
+            name = directory.file_name.ljust(20)
             size = f"{str(directory.file_size / 1024).center(6)} KB"
             blocks = f"{str(directory.file_size // BLOCK_SIZE).center(2)} Block"
 

@@ -197,6 +197,7 @@ class PSXWindow(Adw.ApplicationWindow):
             column.set_expand(True)
             column_view.append_column(column)
 
+        # TODO: Display the icon
         create_column("File Name", bind_name)
         create_column("Size", bind_size)
         create_column("Blocks", bind_blocks)
