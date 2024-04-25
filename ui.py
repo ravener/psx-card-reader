@@ -38,7 +38,7 @@ from card_reader import (
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio, GObject, Gtk
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gtk
 
 MENU_XML = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -60,14 +60,124 @@ MENU_XML = """
 """
 
 
+def set_pixel(image_data, x, y, color):
+    pixel_offset = (y * 16 + x) * 3  # Each pixel has 3 bytes (RGB)
+    r, g, b = color
+    # Update the bytes data with the new color
+    image_data[pixel_offset] = r
+    image_data[pixel_offset + 1] = g
+    image_data[pixel_offset + 2] = b
+
+
+def get_icon(data, i):
+    block = read_block(data, i + 1)
+    icon_type = block[2]
+
+    frames = []
+    # First frame.
+    frames.append(block[128:256])
+
+    # Add second frame if available.
+    if icon_type >= 0x12:
+        frames.append(block[256:384])
+
+        # Add third frame if available.
+        if icon_type >= 0x13:
+            frames.append(block[384:512])
+
+    # The raw 16-bit CLUT palette
+    palette = block[96:128]
+    # The RGB Palette
+    new_palette = [0] * 16
+
+    red_channel = 0
+    green_channel = 0
+    blue_channel = 0
+    color_counter = 0
+
+    # Convert the palette to 8-bit RGB
+    # Thanks https://github.com/ShendoXT/memcardrex/blob/master/MemcardRex/GUI/iconWindow.cs#L93
+    for i in range(0, 32, 2):
+        red_channel = (palette[i] & 0x1F) << 3
+        green_channel = ((palette[i + 1] & 0x3) << 6) | ((palette[i] & 0xE0) >> 2)
+        blue_channel = (palette[i + 1] & 0x7C) << 1
+        new_palette[color_counter] = (red_channel, green_channel, blue_channel)
+        color_counter += 1
+
+    # Create the bitmap image representation
+    image_frames = [[0, 0, 0] * 16 * 16]  # First frame.
+
+    # Second frame
+    if icon_type >= 0x12:
+        image_frames.append([0, 0, 0] * 16 * 16)
+
+        # Third frame
+        if icon_type >= 0x13:
+            image_frames.append([0, 0, 0] * 16 * 16)
+
+    byte_count = 0
+
+    for i, frame in enumerate(frames):
+        byte_count = 0
+        bitmap = image_frames[i]
+
+        for y in range(16):
+            for x in range(0, 16, 2):
+                set_pixel(bitmap, x, y, new_palette[frame[byte_count] & 0xF])
+                set_pixel(bitmap, x + 1, y, new_palette[frame[byte_count] >> 4])
+                byte_count += 1
+
+    pixbufs = []
+
+    for bitmap in image_frames:
+        pixbuf = GdkPixbuf.Pixbuf.new_from_data(
+            bitmap, GdkPixbuf.Colorspace.RGB, False, 8, 16, 16, 48
+        )
+
+        pixbufs.append(Gdk.Texture.new_for_pixbuf(pixbuf))
+
+    return pixbufs
+
+
 class CardEntry(GObject.GObject):
-    def __init__(self, file_name, size, blocks, title):
+    def __init__(self, pixbufs, file_name, size, blocks, title):
         super().__init__()
 
+        self.pixbufs = pixbufs
+        self.icon = Gtk.Image.new_from_paintable(self.pixbufs[0])
         self.file_name = file_name
         self.size = size
         self.blocks = blocks
         self.title = title
+        self.timer_id = None
+
+        if len(self.pixbufs) > 1:
+            self.current_index = 0
+            # Start the animation loop
+            pal_frame_rate = 25
+            pal_frames = 11 if len(self.pixbufs) == 3 else 16
+            update_interval = int((1 / pal_frame_rate) * pal_frames * 1000)
+            self.timer_id = GLib.timeout_add(update_interval, self.update_image)
+
+    def update_image(self):
+        # Update the image source with the next Pixbuf in the list
+        self.icon.set_from_paintable(self.pixbufs[self.current_index])
+
+        # Increment index and wrap around if necessary
+        self.current_index = (self.current_index + 1) % len(self.pixbufs)
+
+        # Continue the animation
+        return True
+
+    def do_destroy(self, _):
+        # Clean up
+        if self.timer_id:
+            GLib.source_remove(self.timer_id)
+
+
+def bind_icon(factory, item):
+    icon = item.get_item().icon
+    item.set_child(icon)
 
 
 def bind_name(factory, item):
@@ -108,6 +218,7 @@ class PSXWindow(Adw.ApplicationWindow):
     def __init__(self, application):
         super().__init__(application=application)
 
+        self.set_icon_name("media-memory-sd-symbolic")
         self.set_default_size(800, 500)
         self.set_title("PSX Card Reader")
 
@@ -176,18 +287,20 @@ class PSXWindow(Adw.ApplicationWindow):
 
         total_size = 8 * 1024
 
+        column_view = Gtk.ColumnView()
+        column_view.set_vexpand(True)
+
         for i, directory in enumerate(directories):
             if directory.state == FIRST:
                 name = directory.file_name
                 size = directory.file_size / 1024
                 blocks = directory.file_size // BLOCK_SIZE
                 title = get_title(data, i)
-
+                icon = get_icon(data, i)
                 total_size += directory.file_size
-                store.append(CardEntry(name, size, blocks, title))
-
-        column_view = Gtk.ColumnView()
-        column_view.set_vexpand(True)
+                entry = CardEntry(icon, name, size, blocks, title)
+                column_view.connect("destroy", entry.do_destroy)
+                store.append(entry)
 
         def create_column(name, callback):
             factory = Gtk.SignalListItemFactory()
@@ -197,7 +310,7 @@ class PSXWindow(Adw.ApplicationWindow):
             column.set_expand(True)
             column_view.append_column(column)
 
-        # TODO: Display the icon
+        create_column("Icon", bind_icon)
         create_column("File Name", bind_name)
         create_column("Size", bind_size)
         create_column("Blocks", bind_blocks)
