@@ -51,12 +51,12 @@ class DirectoryFrame:
     file_name: str = None
 
 
-def read_block(data, i):
+def read_block(data: bytes, i: int):
     """Returns the subarray of data including only the requested block."""
     return data[i * BLOCK_SIZE : i * BLOCK_SIZE + BLOCK_SIZE]
 
 
-def parse_header(data):
+def parse_header(data: bytes) -> list[DirectoryFrame]:
     directories = []
 
     # Explanation of the range:
@@ -77,7 +77,7 @@ def parse_header(data):
     return directories
 
 
-def verify_file(data):
+def verify_file(data: bytes) -> bool:
     """
     Verifies that the given data is a valid card.
 
@@ -92,12 +92,12 @@ def verify_file(data):
     return True
 
 
-def get_title(data, i):
+def get_title(data: bytes, i: int) -> str:
     block = read_block(data, i + 1)
     return block[4:68].decode("shift_jis").strip("\x00")
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = ArgumentParser()
     parser.add_argument("input", help="The raw memory card file.")
     args = parser.parse_args()
@@ -137,3 +137,7 @@ if __name__ == "__main__":
     )
     print()
     print("Filename prefix: BI = Japan, BE = Europe, BA = America")
+
+
+if __name__ == "__main__":
+    main()
